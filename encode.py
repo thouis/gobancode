@@ -81,13 +81,13 @@ if __name__ == '__main__':
     # header
     print "(;FF[4]SZ[{}]AP[gobancode]".format(boardsize)
 
+    letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
     black_stones = []
     white_stones = []
     for row, l in enumerate(encoded):
         for col, c in enumerate(l):
-            char_row = chr(ord('a') + row)
-            char_col = chr(ord('a') + col)
-            tmp = "[{}{}]".format(char_col, char_row)
+            tmp = "[{}{}]".format(letters[col], letters[row])
             if c == 1:
                 black_stones.append(tmp)
             elif c == 2:
