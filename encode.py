@@ -1,11 +1,53 @@
 import sys
 import subprocess
+import numpy as np
+import random
+import scipy.ndimage as nd
 
 formatargs = {'datamatrix': '--square -b 71',
               'qrcode': '-b 58',
               'grid': '-b 142',
               'microqr': '-b 97',
               'aztec': '-b 92'}
+
+def all_alive(board):
+    black_groups, black_count = nd.label(board == 1)
+    empty_adjacent_count = nd.filters.convolve((board == 0).astype(np.uint8),
+                                               np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]]),
+                                               mode='constant')
+    black_adjacent_max = nd.maximum(empty_adjacent_count, black_groups,
+                                    np.arange(1, black_count))
+    if np.any(black_adjacent_max == 0):
+        return False
+    white_groups, white_count = nd.label(board == 2)
+    white_adjacenet_max = nd.maximum(empty_adjacent_count, white_groups,
+                                     np.arange(1, white_count))
+    if np.any(white_adjacenet_max == 0):
+        return False
+    return True
+
+def make_alive(board):
+    # fix up the board by removing all the white stones, then adding them back
+    # in on empty intersections until no more can be added
+
+    # convert to an array of 0/1 with 1 = black
+    board = (np.array(board) == '1').astype(int)
+    assert all_alive(board)
+
+    # treat 0 as empty, 1 as black, 2 as white
+    empty = zip(*np.nonzero(board == 0))
+    while len(empty) > 0:
+        idx = random.randrange(len(empty))
+        i, j = empty[idx]
+        del empty[idx]
+
+        # fill the intersection with a white stone, and test for aliveness
+        board[i, j] = 2
+        if not all_alive(board):
+            # failure, clear the intersection again
+            board[i, j] = 0
+    return board
+
 
 if __name__ == '__main__':
     zintargs = formatargs['qrcode']
@@ -29,9 +71,12 @@ if __name__ == '__main__':
 
     data = sys.argv[-1]
     encoded = subprocess.check_output('zint --dump {} -d'.format(zintargs).split(' ') + [data])
-    encoded = [l for l in encoded.translate(None, "[] ").split('\n') if l]
+    encoded = [list(l) for l in encoded.translate(None, "[] ").split('\n') if l]
 
     boardsize = len(encoded)
+
+    # clean up dead groups
+    encoded = make_alive(encoded)
 
     # header
     print "(;FF[4]SZ[{}]AP[gobancode]".format(boardsize)
@@ -39,13 +84,14 @@ if __name__ == '__main__':
     black_stones = []
     white_stones = []
     for row, l in enumerate(encoded):
-        if l == '': continue
         for col, c in enumerate(l):
-            dest = black_stones if c == '1' else white_stones
-
             char_row = chr(ord('a') + row)
             char_col = chr(ord('a') + col)
-            dest.append("[{}{}]".format(char_col, char_row))
+            tmp = "[{}{}]".format(char_col, char_row)
+            if c == 1:
+                black_stones.append(tmp)
+            elif c == 2:
+                white_stones.append(tmp)
     print ";AB{}".format(''.join(black_stones))
     print ";AW{}".format(''.join(white_stones))
     print ")"
