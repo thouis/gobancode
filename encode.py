@@ -37,9 +37,7 @@ def make_alive(board):
     # treat 0 as empty, 1 as black, 2 as white
     empty = zip(*np.nonzero(board == 0))
     while len(empty) > 0:
-        idx = random.randrange(len(empty))
-        i, j = empty[idx]
-        del empty[idx]
+        i, j = empty.pop(random.randrange(len(empty)))
 
         # fill the intersection with a white stone, and test for aliveness
         board[i, j] = 2
